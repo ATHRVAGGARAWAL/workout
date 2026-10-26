@@ -11,6 +11,17 @@ The iOS bundle identifier is `com.athrv47.workout`.
 
 ## Latest installation — 2026-10-26
 
+[EAS build 51527e24-0db1-4d15-b9ee-80d868d37918](https://expo.dev/accounts/athrv47/projects/workout/builds/51527e24-0db1-4d15-b9ee-80d868d37918)
+includes the floating mobile dock, light and dark appearance, and the detailed
+muscle map. The unsigned IPA is `artifacts/workout-unsigned-build-3.ipa` (SHA-256
+`2420ee583be2ebe15f7bde52797eb160da819ffe0cd2134c968f507e05e09a2d`).
+ZIP integrity, version 1.0.0 (build 3), and the embedded JavaScript bundle were
+verified. `xtool install --usb` signed and successfully installed it on Athrv’s
+connected iPhone. Remote launch still returns `DebugserverClient.Error.unknown`,
+so open Workout on the phone to check its on-device behavior.
+
+## Previous installation — 2026-10-26
+
 [EAS build 1b866509-ad63-4cdb-83ef-4bcb629e8371](https://expo.dev/accounts/athrv47/projects/workout/builds/1b866509-ad63-4cdb-83ef-4bcb629e8371)
 completed with the BHIM-derived muscle map and the latest UI changes. The unsigned
 IPA is `artifacts/workout-unsigned-build-2.ipa` (SHA-256
