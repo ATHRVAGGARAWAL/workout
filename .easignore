@@ -1,0 +1,11 @@
+node_modules/
+.git/
+.expo/
+screenshots/
+dist/
+dist-android/
+android/
+ios/
+.claude/
+
+/artifacts/

@@ -39,3 +39,9 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Local visual reviews and bundle checks
+/screenshots/
+/dist-android/
+
+/artifacts/

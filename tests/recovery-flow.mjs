@@ -1,0 +1,35 @@
+import {chromium,expect} from '@playwright/test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+const base=process.env.WORKOUT_TEST_URL??'http://localhost:8095';
+const seed=JSON.parse(await fs.readFile('screenshots/qa/test-data.json','utf8'));
+const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH??'/usr/bin/chromium',args:['--no-sandbox']});
+const context=await browser.newContext({viewport:{width:320,height:760},acceptDownloads:true});
+await context.addInitScript(data=>{if(!localStorage.getItem('workout.data.v1'))localStorage.setItem('workout.data.v1',JSON.stringify(data));},seed);
+const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
+const data=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('workout.data.v1')));
+const upload=async (button,content)=>{const event=page.waitForEvent('filechooser');await page.getByRole('button',{name:button,exact:true}).click();await(await event).setFiles({name:'backup.json',mimeType:'application/json',buffer:Buffer.from(content)});};
+try {
+ await page.goto(base+'/routine/new',{waitUntil:'networkidle'});
+ await page.getByLabel('Routine name',{exact:true}).fill('My custom session');
+ await page.getByRole('button',{name:'Add exercise',exact:true}).click();await page.getByRole('button',{name:'Create exercise',exact:true}).click();await page.getByLabel('Exercise name',{exact:true}).fill('Paused floor press');await page.getByRole('button',{name:'Create exercise',exact:true}).last().click();await page.waitForTimeout(500);
+ await page.getByLabel('Rest (s) · exercise 1',{exact:true}).fill('');await page.getByLabel('Rest (s) · exercise 1',{exact:true}).pressSequentially('1200',{delay:100});await expect(page.getByLabel('Rest (s) · exercise 1',{exact:true})).toHaveValue('1200');await page.getByRole('button',{name:'Save routine',exact:true}).click();await page.waitForURL(base+'/');
+ let d=await data();const custom=d.customExercises.find(e=>e.name==='Paused floor press');assert.ok(custom);const routine=d.routines.find(r=>r.name==='My custom session');assert.equal(routine.exercises[0].restSeconds,1200);
+ await page.goto(base+'/library',{waitUntil:'networkidle'});await page.getByLabel('Search exercises',{exact:true}).fill('Paused floor press');await page.getByRole('button',{name:'Favorite Paused floor press',exact:true}).click();await expect.poll(async()=>(await data()).favoriteExerciseIds.includes(custom.id)).toBe(true);
+ await page.goto(base+'/routine/'+routine.id,{waitUntil:'networkidle'});await page.getByRole('button',{name:'Save as a new copy',exact:true}).click();await page.waitForURL(base+'/');await expect.poll(async()=>(await data()).routines.filter(r=>r.name==='My custom session copy').length).toBe(1);
+ console.log('PASS custom exercise, favorites, routine creation/duplication, extended rest range');
+ const session=seed.sessions[0];await page.goto(base+'/session/'+session.id,{waitUntil:'networkidle'});await page.getByRole('button',{name:'Edit workout',exact:true}).click();await page.getByLabel('Bench press set 1 weight',{exact:true}).fill('65');await page.getByRole('button',{name:'Save details',exact:true}).click();await expect.poll(async()=>(await data()).sessions[0].exercises[0].sets[0].weight).toBe('65');
+ await page.getByRole('button',{name:'Edit workout',exact:true}).click();await page.getByLabel('Bench press set 1 weight',{exact:true}).fill('999');await page.getByRole('button',{name:'Cancel editing',exact:true}).first().click();await page.getByRole('button',{name:'Edit workout',exact:true}).click();await expect(page.getByLabel('Bench press set 1 weight',{exact:true})).toHaveValue('65');await page.getByRole('button',{name:'Cancel editing',exact:true}).first().click();
+ await page.goto(base+'/exercise/'+session.exercises[0].exerciseId,{waitUntil:'networkidle'});await expect(page.getByText('65 kg',{exact:true}).first()).toBeVisible();
+ console.log('PASS historical edits, cancel resets draft, updated record');
+ await page.goto(base+'/settings',{waitUntil:'networkidle'});const backup=JSON.stringify({format:'workout-backup',version:1,data:seed});await upload('Restore backup',backup);await page.getByRole('button',{name:'Replace with backup',exact:true}).click();await expect.poll(async()=>(await data()).sessions[0].exercises[0].sets[0].weight).toBe('60');assert.equal((await data()).customExercises.length,seed.customExercises.length);
+ await page.getByLabel('Reminder time · 24-hour HH:MM',{exact:true}).fill('25:00');await page.getByRole('button',{name:'Save reminder time',exact:true}).click();await page.getByText('Enter reminder time as HH:MM, from 00:00 to 23:59.',{exact:true}).waitFor();
+ await page.getByLabel('Reminder time · 24-hour HH:MM',{exact:true}).fill('19:30');await page.getByRole('button',{name:'Save reminder time',exact:true}).click();await expect.poll(async()=>(await data()).settings.reminderHour).toBe(19);
+ console.log('PASS validated backup restore and reminder settings');
+ await page.goto(base+'/scale',{waitUntil:'networkidle'});await page.getByRole('button',{name:'Enter a measurement manually',exact:true}).click();await page.getByText('Log a measurement',{exact:true}).waitFor();await page.getByLabel('Body weight (kg)',{exact:true}).fill('74.4');await page.getByRole('button',{name:'Update measurement',exact:true}).click();await expect.poll(async()=>(await data()).measurements.find(m=>!m.sourceId).recordedAt>0).toBe(true);await page.waitForTimeout(400);await page.getByText('Your body journal',{exact:true}).waitFor();await page.goto(base+'/settings',{waitUntil:'networkidle'});
+ await page.evaluate(()=>localStorage.setItem('workout.data.v1','{"broken":true}'));await page.reload({waitUntil:'networkidle'});await page.getByText('Let’s recover your journal',{exact:true}).waitFor();assert.equal(await page.evaluate(()=>localStorage.getItem('workout.data.v1')),'{"broken":true}');await upload('Restore journal backup',backup);await page.getByRole('button',{name:'Recover journal',exact:true}).click();await page.getByText('Your space.',{exact:true}).waitFor();assert.equal((await data()).sessions.length,1);
+ console.log('PASS corrupted storage preserved, confirmed backup recovery');
+ await page.goto(base+'/session/'+session.id,{waitUntil:'networkidle'});await page.getByRole('button',{name:'Delete workout',exact:true}).click();await page.getByRole('button',{name:'Delete workout',exact:true}).last().click();await expect.poll(async()=>(await data()).sessions.length).toBe(0);
+ await page.goto(base+'/progress',{waitUntil:'networkidle'});await page.getByRole('button',{name:'Records',exact:true}).click();await expect(page.getByText('Bench press',{exact:true})).toHaveCount(0);
+ assert.deepEqual(errors,[]);console.log('ALL RECOVERY AND EDITING CHECKS PASSED');
+} catch(error) {await page.screenshot({path:'screenshots/qa/recovery-failure.png'});console.error(page.url(),(await page.locator('body').innerText()).slice(-4000));throw error;} finally {await browser.close();}
