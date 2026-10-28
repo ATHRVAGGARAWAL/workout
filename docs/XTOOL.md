@@ -9,7 +9,19 @@ The EAS project is https://expo.dev/accounts/athrv47/projects/workout. The origi
 Android build linked in the main README belongs to the previous Expo project.
 The iOS bundle identifier is `com.athrv47.workout`.
 
-## Latest installation — 2026-10-26
+## Latest installation — 2026-10-28
+
+[EAS build 77369ca0-e776-4d05-8cd0-0b360c9ae85a](https://expo.dev/accounts/athrv47/projects/workout/builds/77369ca0-e776-4d05-8cd0-0b360c9ae85a)
+includes the interactive weekly journal, all-time training summary, live set
+progress, and isolated workout timers. The unsigned IPA is
+`artifacts/workout-unsigned-build-4.ipa` (SHA-256
+`d01ba78622c7e89a873b2cd849861bf2195a8cb9be8214c832489eaa20c0830e`).
+ZIP integrity, version 1.0.0 (build 4), and the embedded JavaScript bundle were
+verified. `xtool install --usb` signed and successfully installed it on Athrv’s
+connected iPhone. Remote launch still returns `DebugserverClient.Error.unknown`,
+so open Workout on the phone to check its on-device behavior.
+
+## Previous installation (build 3) — 2026-10-26
 
 [EAS build 51527e24-0db1-4d15-b9ee-80d868d37918](https://expo.dev/accounts/athrv47/projects/workout/builds/51527e24-0db1-4d15-b9ee-80d868d37918)
 includes the floating mobile dock, light and dark appearance, and the detailed
@@ -20,7 +32,7 @@ verified. `xtool install --usb` signed and successfully installed it on Athrv’
 connected iPhone. Remote launch still returns `DebugserverClient.Error.unknown`,
 so open Workout on the phone to check its on-device behavior.
 
-## Previous installation — 2026-10-26
+## Previous installation (build 2) — 2026-10-26
 
 [EAS build 1b866509-ad63-4cdb-83ef-4bcb629e8371](https://expo.dev/accounts/athrv47/projects/workout/builds/1b866509-ad63-4cdb-83ef-4bcb629e8371)
 completed with the BHIM-derived muscle map and the latest UI changes. The unsigned
