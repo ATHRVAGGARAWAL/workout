@@ -1,23 +1,22 @@
-import { useEffect, useState } from 'react';
-import { AppState, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { useState } from 'react';
+import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { ArrowDown, ArrowLeft, ArrowUp, Check, Dumbbell, History, Link2, Pause, Play, Plus, Settings2, Timer, Trash2, X } from 'lucide-react-native';
 import { useAppTheme } from '../ThemeProvider';
 import { useTraining } from '../data/store';
-import { createSessionExercise, durationSeconds, formatDuration, lastExercise, newSet, sessionVolume, uid, validateSet, workingSets } from '../data/workout';
+import { createSessionExercise, formatDuration, lastExercise, newSet, sessionVolume, uid, validateSet, workingSets } from '../data/workout';
 import type { Exercise, SessionExercise, WorkoutSet, SetType } from '../data/types';
 import { EXERCISES } from '../data/catalog';
 import { ExercisePicker } from '../components/ExercisePicker';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { RestTimerControl, WorkoutClock } from '../components/WorkoutTimers';
 import { Body, Button, Card, Chip, Empty, Field, IconButton, Label, Metric, Screen, Title, u } from '../components/ui';
 
 export default function WorkoutScreen(){
  const {theme:t}=useAppTheme();const {state,update,finishWorkout,discardWorkout,startWorkout,saving,flush}=useTraining();const active=state.active;
- const [now,setNow]=useState(()=>Date.now());const [picker,setPicker]=useState(false);const [discard,setDiscard]=useState(false);const [finish,setFinish]=useState(false);const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [options,setOptions]=useState<string|null>(null);const [restEditor,setRestEditor]=useState(false);
- useEffect(()=>{const interval=setInterval(()=>setNow(Date.now()),500);const listener=AppState.addEventListener('change',()=>setNow(Date.now()));return()=>{clearInterval(interval);listener.remove();};},[]);
- const rest=Math.max(0,Math.ceil(((active?.restEndsAt??0)-now)/1000));
+ const [picker,setPicker]=useState(false);const [discard,setDiscard]=useState(false);const [finish,setFinish]=useState(false);const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [options,setOptions]=useState<string|null>(null);const [restEditor,setRestEditor]=useState(false);
  const optionExercise=active?.exercises.find(e=>e.id===options);
  function editExercise(id:string,recipe:(e:SessionExercise)=>void){update(draft=>{const exercise=draft.active?.exercises.find(e=>e.id===id);if(exercise)recipe(exercise);});}
  function addExercise(exercise:Exercise){if(!active)return;const previous=lastExercise(state.sessions,exercise.id);const next=createSessionExercise(exercise,previous);if(!previous)next.restSeconds=state.settings.restSeconds;update(d=>{d.active?.exercises.push(next);});setPicker(false);}
@@ -29,10 +28,11 @@ export default function WorkoutScreen(){
  if(!active)return <Screen><Empty title="Ready when you are." message="Start a workout to log your training." icon={<Dumbbell color={t.accent} size={36}/>} action={<Button label="Start workout" onPress={()=>void startWorkout().catch(e=>setError(e.message))}/>}/>{!!error&&<Body>{error}</Body>}<Button label="Back to training" variant="secondary" onPress={()=>router.replace('/')}/></Screen>;
  const totalSets=active.exercises.reduce((sum,e)=>sum+e.sets.length,0);const completed=active.exercises.reduce((sum,e)=>sum+e.sets.filter(s=>s.done).length,0);
  return <SafeAreaView edges={['top','left','right','bottom']} style={{flex:1,backgroundColor:t.background}}>
-  <View style={{width:'100%',maxWidth:760,alignSelf:'center',paddingHorizontal:18,paddingVertical:10,flexDirection:'row',alignItems:'center',gap:10}}><IconButton label="Minimize workout" onPress={()=>router.replace('/')}><ArrowLeft size={20} color={t.text}/></IconButton><View style={{flex:1}}><Label>{active.pausedAt?'WORKOUT PAUSED':'LIVE WORKOUT'}</Label><Text style={{color:t.accent,fontSize:23,fontWeight:'700',fontVariant:['tabular-nums']}}>{formatDuration(durationSeconds(active,now))}</Text></View><IconButton label={active.pausedAt?'Resume workout timer':'Pause workout timer'} onPress={pause}>{active.pausedAt?<Play size={18} color={t.text}/>:<Pause size={18} color={t.text}/>}</IconButton></View>
+  <View style={{width:'100%',maxWidth:760,alignSelf:'center',paddingHorizontal:18,paddingVertical:10,flexDirection:'row',alignItems:'center',gap:10}}><IconButton label="Minimize workout" onPress={()=>router.replace('/')}><ArrowLeft size={20} color={t.text}/></IconButton><View style={{flex:1}}><Label>{active.pausedAt?'WORKOUT PAUSED':'LIVE WORKOUT'}</Label><WorkoutClock active={active}/></View><IconButton label={active.pausedAt?'Resume workout timer':'Pause workout timer'} onPress={pause}>{active.pausedAt?<Play size={18} color={t.text}/>:<Pause size={18} color={t.text}/>}</IconButton></View>
   <ScrollView automaticallyAdjustKeyboardInsets keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" contentContainerStyle={[u.page,{paddingTop:10,paddingBottom:25}]}>
    <TextInput accessibilityLabel="Workout name" value={active.title} maxLength={100} onChangeText={title=>update(d=>{if(d.active)d.active.title=title;})} style={{color:t.text,fontSize:32,fontWeight:'700',letterSpacing:-0.7,paddingVertical:8}} placeholder="Workout name" placeholderTextColor={t.muted}/>
    <View style={u.row}><Metric label="Sets complete" value={`${completed}/${totalSets}`} accent/><Metric label="Volume · kg" value={Math.round(sessionVolume(active)).toLocaleString()}/></View>
+   <View style={{gap:8}}><View style={[u.row,{justifyContent:'space-between'}]}><Text style={{color:t.muted,fontSize:10,fontWeight:'700',letterSpacing:1}}>SESSION PROGRESS</Text><Text style={{color:t.accent,fontSize:12,fontWeight:'700',fontVariant:['tabular-nums']}}>{totalSets?Math.round(completed/totalSets*100):0}%</Text></View><View accessibilityRole="progressbar" accessibilityValue={{min:0,max:totalSets||1,now:completed}} style={{height:7,borderRadius:5,backgroundColor:t.line,overflow:'hidden'}}><View style={{width:`${totalSets?completed/totalSets*100:0}%`,height:'100%',borderRadius:5,backgroundColor:t.accent}}/></View></View>
    {error?<Card style={{borderColor:t.danger}}><Body style={{color:t.danger}}>{error}</Body></Card>:null}
    {active.pausedAt?<Card><Body muted>Your session timer is paused. Resume when you’re ready.</Body></Card>:null}
    {!active.exercises.length?<Empty title="What are we training?" message="Choose exercises from your library. Previous sets will be ready for you next time." icon={<Dumbbell size={32} color={t.accent}/>}/>:null}
@@ -50,7 +50,7 @@ export default function WorkoutScreen(){
    <Button label="Discard workout" variant="danger" onPress={()=>setDiscard(true)}/>
   </ScrollView>
   <View style={{width:'100%',maxWidth:760,alignSelf:'center',padding:14,gap:10,borderTopWidth:1,borderTopColor:t.line,backgroundColor:t.surface}}>
-   <View style={u.row}><Pressable accessibilityRole="button" accessibilityLabel="Rest timer options" onPress={()=>setRestEditor(true)} style={{flex:1,flexDirection:'row',alignItems:'center',gap:10,minHeight:40}}><Timer size={19} color={t.accent}/><Text style={{color:t.text,fontSize:12}}>{rest>0?'Rest timer':'Rest between sets'}</Text><Text style={{color:t.accent,fontWeight:'700',fontSize:20,marginLeft:'auto',fontVariant:['tabular-nums']}}>{rest>0?formatDuration(rest):formatDuration(state.settings.restSeconds)}</Text></Pressable><IconButton label={rest>0?'Skip rest':'Start rest'} onPress={()=>update(d=>{if(d.active)d.active.restEndsAt=rest>0?null:Date.now()+Math.max(1,d.settings.restSeconds)*1000;})}>{rest>0?<X size={17} color={t.text}/>:<Play size={17} color={t.text}/>}</IconButton></View>
+   <RestTimerControl restEndsAt={active.restEndsAt} defaultSeconds={state.settings.restSeconds} onOptions={()=>setRestEditor(true)} onToggle={resting=>update(d=>{if(d.active)d.active.restEndsAt=resting?null:Date.now()+Math.max(1,d.settings.restSeconds)*1000;})}/>
    <Button label={saving?'Saving changes…':'Finish workout'} disabled={busy||saving} onPress={()=>{if(!workingSets(active).length){setError('Complete at least one working set before finishing.');return;}setFinish(true);}}/>
   </View>
   <ExercisePicker visible={picker} onClose={()=>setPicker(false)} onSelect={addExercise}/>

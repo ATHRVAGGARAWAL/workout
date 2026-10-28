@@ -11,7 +11,7 @@ import { Heatmap, LineChart } from '../../components/charts/Charts';
 import { WeeklyDial } from '../../components/WeeklyDial';
 import { DetailedMusclePanel } from '../../components/charts/DetailedMusclePanel';
 import { calendarDays, completedEfforts, consistencyStats, dateKey, formatNumber, personalRecords, shiftDay, weekKey, weeklyActivity } from '../../data/analytics';
-import { formatDate, uid } from '../../data/workout';
+import { formatDate, formatDuration, uid } from '../../data/workout';
 import { detailedMuscleWorkload, MUSCLES, sessionTouchesMuscle, type MuscleId } from '../../data/muscle-detail';
 import type { Measurement } from '../../data/types';
 
@@ -23,7 +23,7 @@ export default function ProgressScreen() {
   const setSection = (value: Section) => router.setParams({ section: value });
   const [range, setRange] = useState(12);
   const [chartMetric, setChartMetric] = useState<'volume' | 'sessions' | 'sets'>('sessions');
-  const [selectedDay, setSelectedDay] = useState<string | null>(dateKey());
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleId | null>(null);
   const [recordSearch, setRecordSearch] = useState('');
@@ -32,7 +32,8 @@ export default function ProgressScreen() {
   const stats = useMemo(() => consistencyStats(state.sessions, state.profile.daysPerWeek), [state.sessions, state.profile.daysPerWeek]);
   const weeks = useMemo(() => weeklyActivity(state.sessions, range), [state.sessions, range]);
   const days = useMemo(() => calendarDays(state.sessions, 12), [state.sessions]);
-  const day = days.find(item => item.key === selectedDay);
+  const visibleSelectedDay = selectedDay ?? [...days].reverse().find(item => item.sessions.length)?.key ?? dateKey();
+  const day = days.find(item => item.key === visibleSelectedDay);
   const start = shiftDay(weekKey(), weekOffset * 7), end = shiftDay(start, 6);
   const weekSessions = state.sessions.filter(session => dateKey(session.startedAt) >= start && dateKey(session.startedAt) <= end);
   const work = detailedMuscleWorkload(weekSessions);
@@ -45,9 +46,9 @@ export default function ProgressScreen() {
     <Heading title="Progress" />
     <View style={u.wrap}>{(['Overview', 'Muscles', 'Records', 'Body'] as Section[]).map(item => <Chip key={item} label={item} selected={section === item} onPress={() => setSection(item)} />)}</View>
     {section === 'Overview' && <>
-      <Card style={{ backgroundColor: '#152944', borderColor: '#152944', borderRadius: 25, padding: 22 }}><View style={[u.row, { gap: 10 }]}><View style={{ flex: 1, gap: 8 }}><Text style={{ color: '#9BC9FA', fontSize: 11, fontWeight: '700', letterSpacing: 1 }}>THIS WEEK</Text><Text style={{ color: '#FFFFFF', fontSize: 27, lineHeight: 32, fontWeight: '700', letterSpacing: -0.6 }}>{stats.thisWeek.days >= state.profile.daysPerWeek ? 'Goal complete' : `${Math.max(0, state.profile.daysPerWeek - stats.thisWeek.days)} days to go`}</Text><Text style={{ color: '#B9C5D5', fontSize: 13 }}>{stats.thisWeek.sessions} workouts · {Math.round(stats.thisWeek.minutes)} minutes</Text></View><WeeklyDial value={stats.thisWeek.days} goal={state.profile.daysPerWeek} dark /></View></Card>
+      <Card style={{ backgroundColor: '#152944', borderColor: '#152944', borderRadius: 25, padding: 22 }}><View style={[u.row, { gap: 10 }]}><View style={{ flex: 1, gap: 8 }}><Text style={{ color: '#9BC9FA', fontSize: 11, fontWeight: '700', letterSpacing: 1 }}>THIS WEEK</Text><Text style={{ color: '#FFFFFF', fontSize: 27, lineHeight: 32, fontWeight: '700', letterSpacing: -0.6 }}>{stats.thisWeek.days >= state.profile.daysPerWeek ? 'Goal complete' : `${Math.max(0, state.profile.daysPerWeek - stats.thisWeek.days)} days to go`}</Text><Text style={{ color: '#B9C5D5', fontSize: 13 }}>{stats.thisWeek.sessions} {stats.thisWeek.sessions === 1 ? 'workout' : 'workouts'} · {formatDuration(Math.round(stats.thisWeek.minutes * 60))} trained</Text></View><WeeklyDial value={stats.thisWeek.days} goal={state.profile.daysPerWeek} dark /></View></Card>
       <Card style={{ flexDirection: 'row', gap: 12 }}><Metric label="Workouts" value={stats.totalSessions} /><Metric label="Days" value={stats.totalDays} /><Metric label="Streak" value={`${stats.goalStreak} wk`} accent /></Card>
-      <Card><View style={u.row}><CalendarDays size={19} color={t.accent} /><Title>Consistency</Title></View>{stats.totalSessions ? <><Body muted>Your last 12 weeks of training.</Body><Heatmap days={days} selected={selectedDay} onSelect={setSelectedDay} />
+      <Card><View style={u.row}><CalendarDays size={19} color={t.accent} /><Title>Consistency</Title></View>{stats.totalSessions ? <><Body muted>Your last 12 weeks of training.</Body><Heatmap days={days} selected={visibleSelectedDay} onSelect={setSelectedDay} />
         {day && <View style={{ borderTopWidth: 1, borderTopColor: t.line, paddingTop: 14, gap: 7 }}><Label>{formatDate(day.key)}</Label>{day.sessions.length ? day.sessions.map(session => <RowLink key={session.id} title={session.title} subtitle={`${completedEfforts(session).length} working sets / intervals`} onPress={() => router.push(`/session/${session.id}`)} />) : <Body muted>No workout logged that day.</Body>}</View>}</> : <Body muted>Finish a workout to start your training record.</Body>}
       </Card>
       {stats.totalSessions > 0 && <Card><View style={[u.row, { justifyContent: 'space-between' }]}><Title>Training trend</Title><View style={u.row}>{[4, 12].map(value => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: range === value }} onPress={() => setRange(value)} style={{ padding: 9, borderRadius: 8, backgroundColor: range === value ? t.raised : 'transparent' }}><Text style={{ color: range === value ? t.accent : t.muted, fontSize: 11 }}>{value}W</Text></Pressable>)}</View></View>
